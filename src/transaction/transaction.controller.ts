@@ -4,10 +4,13 @@ import { transactionSchema } from "../transaction/transaction.validation";
 import { handleServerError } from "../helpers/errorHandling";
 
 // Get all transactions
-export const getTransactions = async (req: Request, res: Response): Promise<void> => {
+export const getTransactions = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const transactions = await prisma.transaction.findMany({
-      include: { item: true, user: true },  // Ganti inventory dengan item
+      include: { item: true, user: true },
     });
 
     res.status(200).json({
@@ -21,13 +24,16 @@ export const getTransactions = async (req: Request, res: Response): Promise<void
 };
 
 // Get transaction by ID
-export const getTransactionById = async (req: Request, res: Response): Promise<void> => {
+export const getTransactionById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {
     const transaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
-      include: { item: true, user: true },  // Ganti inventory dengan item
+      include: { item: true, user: true },
     });
 
     if (!transaction) {
@@ -50,9 +56,11 @@ export const getTransactionById = async (req: Request, res: Response): Promise<v
 };
 
 // Create a new transaction
-export const createTransaction = async (req: Request, res: Response): Promise<void> => {
+export const createTransaction = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    // Validasi menggunakan Zod
     const parse = transactionSchema.safeParse(req.body);
 
     if (!parse.success) {
@@ -68,18 +76,57 @@ export const createTransaction = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { itemId, userId, transactionType, quantity, notes, transactionDate } = parse.data;
+    const {
+      itemId,
+      userId,
+      transactionType,
+      quantity,
+      notes,
+      transactionDate,
+    } = parse.data;
 
     // Membuat transaksi baru
     const newTransaction = await prisma.transaction.create({
-      data: { 
-        itemId, 
-        userId, 
-        transactionType, 
-        quantity, 
-        notes, 
-        transactionDate: transactionDate ? new Date(transactionDate) : new Date(),  // Set default transactionDate jika tidak ada
+      data: {
+        itemId,
+        userId,
+        transactionType,
+        quantity,
+        notes,
+        transactionDate: transactionDate
+          ? new Date(transactionDate)
+          : new Date(),
       },
+    });
+
+    // Perbarui stok barang berdasarkan jenis transaksi
+    const item = await prisma.item.findUnique({ where: { id: itemId } });
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: "Item not found",
+        data: null,
+      });
+      return;
+    }
+
+    const updatedQuantity =
+      transactionType === "IN"
+        ? item.quantity + quantity
+        : item.quantity - quantity;
+
+    if (updatedQuantity < 0) {
+      res.status(400).json({
+        success: false,
+        message: "Insufficient stock for this transaction",
+        data: null,
+      });
+      return;
+    }
+
+    await prisma.item.update({
+      where: { id: itemId },
+      data: { quantity: updatedQuantity },
     });
 
     res.status(201).json({
@@ -93,11 +140,13 @@ export const createTransaction = async (req: Request, res: Response): Promise<vo
 };
 
 // Update a transaction
-export const updateTransaction = async (req: Request, res: Response): Promise<void> => {
+export const updateTransaction = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {
-    // Cek apakah transaksi ada
     const existingTransaction = await prisma.transaction.findUnique({
       where: { id: Number(id) },
     });
@@ -111,7 +160,6 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Validasi update dengan partial schema
     const parse = transactionSchema.partial().safeParse(req.body);
 
     if (!parse.success) {
@@ -127,19 +175,55 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { itemId, userId, transactionType, quantity, notes, transactionDate } = parse.data;
+    const { itemId, transactionType, quantity } = parse.data;
+
+    // Dapatkan data item lama
+    const item = await prisma.item.findUnique({
+      where: { id: existingTransaction.itemId },
+    });
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: "Item not found",
+        data: null,
+      });
+      return;
+    }
+
+    // Hitung perubahan stok
+    let updatedQuantity = item.quantity;
+
+    // Kembalikan stok dari transaksi sebelumnya
+    updatedQuantity =
+      existingTransaction.transactionType === "IN"
+        ? updatedQuantity - existingTransaction.quantity
+        : updatedQuantity + existingTransaction.quantity;
+
+    // Terapkan stok dari transaksi yang diperbarui
+    updatedQuantity =
+      transactionType === "IN"
+        ? updatedQuantity + quantity!
+        : updatedQuantity - quantity!;
+
+    if (updatedQuantity < 0) {
+      res.status(400).json({
+        success: false,
+        message: "Insufficient stock for this transaction",
+        data: null,
+      });
+      return;
+    }
+
+    // Update stok barang
+    await prisma.item.update({
+      where: { id: existingTransaction.itemId },
+      data: { quantity: updatedQuantity },
+    });
 
     // Update transaksi
     const updatedTransaction = await prisma.transaction.update({
       where: { id: Number(id) },
-      data: { 
-        itemId, 
-        userId, 
-        transactionType, 
-        quantity, 
-        notes, 
-        transactionDate: transactionDate ? new Date(transactionDate) : undefined,  // Jika ada, update tanggal transaksi
-      },
+      data: parse.data,
     });
 
     res.status(200).json({
@@ -153,7 +237,10 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
 };
 
 // Delete a transaction
-export const deleteTransaction = async (req: Request, res: Response): Promise<void> => {
+export const deleteTransaction = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {

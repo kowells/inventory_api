@@ -7,7 +7,7 @@ import { handleServerError } from "../helpers/errorHandling";
 export const getInventoryLogs = async (req: Request, res: Response): Promise<void> => {
   try {
     const logs = await prisma.inventoryLog.findMany({
-      include: { item: true, user: true },  // Corrected to reflect the relation to 'item'
+      include: { item: true, user: true }, 
     });
     
     res.status(200).json({
@@ -27,7 +27,7 @@ export const getInventoryLogById = async (req: Request, res: Response): Promise<
   try {
     const log = await prisma.inventoryLog.findUnique({
       where: { id: Number(id) },
-      include: { item: true, user: true },  // Corrected to reflect the relation to 'item'
+      include: { item: true, user: true },  
     });
 
     if (!log) {
@@ -52,7 +52,7 @@ export const getInventoryLogById = async (req: Request, res: Response): Promise<
 // Create an inventory log
 export const createInventoryLog = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Validate input using Zod
+    
     const parse = inventoryLogSchema.safeParse(req.body);
 
     if (!parse.success) {

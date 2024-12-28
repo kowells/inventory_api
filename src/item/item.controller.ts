@@ -8,7 +8,6 @@ export const getAllItems = async (req: Request, res: Response): Promise<void> =>
   try {
     const { page = 1, limit = 10, category, name, supplier } = req.query;
 
-    // Konversi parameter query menjadi angka
     const pageNumber = Number(page);
     const limitNumber = Number(limit);
 
@@ -40,10 +39,10 @@ export const getAllItems = async (req: Request, res: Response): Promise<void> =>
         where: filters,
         skip: offset,
         take: limitNumber,
-        include: { category: true, supplier: true }, // Sesuaikan dengan relasi yang dibutuhkan
+        include: { category: true, supplier: true }, 
       }),
       prisma.item.count({
-        where: filters, // Hitung total item dengan filter
+        where: filters, 
       }),
     ]);
 
@@ -52,10 +51,10 @@ export const getAllItems = async (req: Request, res: Response): Promise<void> =>
       message: "Get all items success",
       data: items,
       meta: {
-        total, // Total jumlah data
-        page: pageNumber, // Halaman saat ini
-        limit: limitNumber, // Jumlah data per halaman
-        totalPages: Math.ceil(total / limitNumber), // Total halaman
+        total, 
+        page: pageNumber, 
+        limit: limitNumber, 
+        totalPages: Math.ceil(total / limitNumber), 
       },
     });
   } catch (error) {

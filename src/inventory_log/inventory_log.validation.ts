@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { handleValidationError } from "../helpers/errorHandling";
 
-// Adjusted schema based on the model
 export const inventoryLogSchema = z.object({
   itemId: z.number().int(),
   userId: z.number().int(),
